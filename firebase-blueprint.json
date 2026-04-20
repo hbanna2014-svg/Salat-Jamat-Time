@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "mosque": {
+      "title": "Mosque",
+      "description": "A mosque and its prayer times",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "active": { "type": "boolean" },
+        "adminUid": { "type": "string", "description": "The UID of the mosque authority" },
+        "jummahTime": { "type": "string", "description": "Time for Jummah prayer" },
+        "khateeb": { "type": "string", "description": "Name of the Khateeb for Jummah" },
+        "imageUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "contact": { "type": "string" },
+        "history": { "type": "string" },
+        "timezone": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "prayerTimes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "time": { "type": "string" },
+              "date": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["name", "adminUid", "active", "prayerTimes"]
+    },
+    "user": {
+      "title": "User",
+      "description": "User profile and role",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "authority", "user"] },
+        "mosqueId": { "type": "string", "description": "ID of the mosque they manage" }
+      },
+      "required": ["email", "role"]
+    },
+    "masala": {
+      "title": "Masala",
+      "description": "Fiqh questions and answers",
+      "type": "object",
+      "properties": {
+        "question": { "type": "string" },
+        "answer": { "type": "string" },
+        "category": { "type": "string", "enum": ["Salat", "Zakat", "Roza", "Hajj", "Others"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["question", "answer", "category"]
+    }
+  },
+  "firestore": {
+    "/mosques/{mosqueId}": {
+      "schema": "mosque",
+      "description": "Collection of mosques"
+    },
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles"
+    },
+    "/masayel/{masalaId}": {
+      "schema": "masala",
+      "description": "Fiqh questions and answers"
+    }
+  }
+}

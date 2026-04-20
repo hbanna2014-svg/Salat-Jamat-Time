@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Mosque Jama\u0027at Alert",
+  "description": "A real-time mosque jama\u0027at time tracking app with geo-fencing and voice alerts.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role helpers (explicit DB lookups)
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        getUserData(request.auth.uid).role == 'admin' ||
+        (request.auth.token.email == "h.banna2014@gmail.com" && isEmailVerified())
+      );
+    }
+
+    function isAuthority() {
+      return isSignedIn() && getUserData(request.auth.uid).role == 'authority';
+    }
+
+    // Validation Blueprints
+    function isValidUser(data) {
+      let requiredFields = ['email', 'role'];
+      let optionalFields = ['mosqueId'];
+      let allFields = requiredFields.concat(optionalFields);
+      
+      return data.keys().hasAll(requiredFields) &&
+             data.keys().size() <= allFields.size() &&
+             data.email is string && data.email.size() <= 256 &&
+             data.role in ['admin', 'authority', 'user'] &&
+             (!('mosqueId' in data) || (data.mosqueId is string && data.mosqueId.size() <= 128));
+    }
+
+    function isValidMosque(data) {
+      let requiredFields = ['name', 'adminUid', 'active', 'prayerTimes'];
+      let optionalFields = ['address', 'location', 'jummahTime', 'khateeb', 'imageUrl', 'description', 'contact', 'history', 'timezone', 'createdAt'];
+      let allFields = requiredFields.concat(optionalFields);
+
+      return data.keys().hasAll(requiredFields) &&
+             data.keys().size() <= allFields.size() &&
+             data.name is string && data.name.size() <= 200 &&
+             data.adminUid is string && data.adminUid.size() <= 128 &&
+             data.active is bool &&
+             data.prayerTimes is list && data.prayerTimes.size() <= 10 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+             (!('contact' in data) || (data.contact is string && data.contact.size() <= 500)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 2000)) &&
+             // Verify author is the current user or already set
+             (data.adminUid == request.auth.uid || (resource != null && data.adminUid == resource.data.adminUid) || isAdmin());
+    }
+
+    function isValidMasala(data) {
+      return data.keys().hasAll(['question', 'answer', 'category']) &&
+             data.question is string && data.question.size() <= 1000 &&
+             data.answer is string && data.answer.size() <= 5000 &&
+             data.category in ['Salat', 'Zakat', 'Roza', 'Hajj', 'Others'];
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      // Rule 8: Secure List Queries
+      allow list: if isSignedIn() && (userId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && isValidId(userId) && (userId == request.auth.uid || isAdmin());
+
+      allow create: if isEmailVerified() && isValidId(userId) && userId == request.auth.uid && isValidUser(incoming()) && incoming().role == 'user';
+      
+      allow update: if isEmailVerified() && isValidId(userId) && (
+        isAdmin() ||
+        (userId == request.auth.uid && 
+         incoming().role == existing().role && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['email', 'mosqueId']) &&
+         isValidUser(incoming()))
+      );
+      
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // 2. Mosques Collection
+    match /mosques/{mosqueId} {
+      // Rule 8: Secure List Queries - restrict to active for public
+      allow read: if (resource.data.active == true) || isAdmin();
+      
+      allow create: if isEmailVerified() && isValidId(mosqueId) && isAdmin() && isValidMosque(incoming()) && 
+                    incoming().createdAt == request.time;
+      
+      allow update: if isEmailVerified() && isValidId(mosqueId) && isValidMosque(incoming()) && (
+        isAdmin() ||
+        (isAuthority() && existing().adminUid == request.auth.uid && 
+         incoming().adminUid == existing().adminUid &&
+         incoming().createdAt == existing().createdAt &&
+         incoming().diff(existing()).affectedKeys().hasAny(['prayerTimes', 'jummahTime', 'khateeb', 'active', 'address', 'location', 'description', 'contact', 'history', 'imageUrl']))
+      );
+      
+      allow delete: if isAdmin() && isValidId(mosqueId);
+    }
+
+    // 3. Masayel Collection
+    match /masayel/{masalaId} {
+      allow read: if resource.data.question is string; // Validated public read
+      allow create: if isEmailVerified() && isValidId(masalaId) && isAdmin() && isValidMasala(incoming());
+      allow update: if isEmailVerified() && isValidId(masalaId) && isAdmin() && isValidMasala(incoming());
+      allow delete: if isEmailVerified() && isValidId(masalaId) && isAdmin();
+    }
+  }
+}

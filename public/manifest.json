@@ -1,0 +1,22 @@
+{
+  "short_name": "MosqueTime",
+  "name": "Mosque Prayer Times & Alerts",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/mosque/192/192",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/mosque/512/512",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#065f46",
+  "background_color": "#ffffff"
+}
